@@ -82,7 +82,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 APP_DATA appData;
 S_ParamGen LocalParamGen;   // Declaration de variable de parametres generateur de signal local
 S_ParamGen RemoteParamGen;  // Declaration de variable de parametres generateur de signal remote
-bool saveParams;
+bool saveParams;            // Declaration de var qui indique la sauvegarde de parametres
 
 // *****************************************************************************
 // *****************************************************************************
@@ -233,8 +233,6 @@ void APP_Tasks ( void )
         {
             if (!TCPIP_TCP_IsConnected(appData.socket))
             {
-                //retourne en attente d'une IP valide 
-                //appData.state = APP_TCPIP_WAIT_FOR_IP; 
                 return;
             }
             else
@@ -255,13 +253,17 @@ void APP_Tasks ( void )
             {
                 appData.state = APP_TCPIP_CLOSING_CONNECTION;
                 SYS_CONSOLE_MESSAGE("Connection was closed\r\n");
+                
+                // Connection fermé, mets status server à 0, eteint led 7
                 BSP_LEDOff(BSP_LED_7);
+                
                 STATU_COM_SERVER(false);
                 connectiontest = false;
                 break;
             }
             else
             {
+                 // Connection ouverte, mets status server à 1, allume led 7
                 if(connectiontest == false)
                 {
                     STATU_COM_SERVER(true);
@@ -295,6 +297,7 @@ void APP_Tasks ( void )
                 // Transfer the data out of the TCP RX FIFO and into our local processing buffer.
                 TCPIP_TCP_ArrayGet(appData.socket, AppBuffer, wCurrentChunk); 
                 
+                // Lecture du message recu, mets flag msgOk si valeurs correctés
                 msgOk = GetMessage((int8_t*)AppBuffer, &RemoteParamGen, &saveParams);
 
                 // Perform the "ToUpper" operation on each data byte
@@ -313,6 +316,7 @@ void APP_Tasks ( void )
                     }
                 }
                 
+                // Si msg correct, modifie chaine et adapte taille des message à envoyer
                 if(msgOk)
                 {
                     SendMessage((int8_t*) AppBuffer, &RemoteParamGen, saveParams);
@@ -321,7 +325,8 @@ void APP_Tasks ( void )
                 
                 // Transfer the data out of our local processing buffer and into the TCP TX FIFO.
                 SYS_CONSOLE_PRINT("Server Sending %s\r\n", AppBuffer);
-                //wCurrentChunk = sizeof(AppBuffer);
+                
+                // Envoi par TCP/IP
                 TCPIP_TCP_ArrayPut(appData.socket, AppBuffer, wCurrentChunk); 
                 // No need to perform any flush.  TCP data in TX FIFO will automatically transmit itself after it accumulates for a while.  If you want to decrease latency (at the expense of wasting network bandwidth on TCP overhead), perform and explicit flush via the TCPFlush() API.
             }
